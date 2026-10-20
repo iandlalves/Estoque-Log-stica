@@ -1,0 +1,29 @@
+# Caddyfile — Central de Infraestrutura (Linux)
+#
+# Mesma ideia do deploy/Caddyfile (Windows): o Caddy fica na frente do site
+# (que continua rodando em HTTP puro na porta 3000, só acessível
+# localmente) e serve HTTPS pra rede interna, com certificado gerado e
+# renovado automaticamente pelo próprio Caddy (CA local, não é Let's
+# Encrypt — não precisa de domínio público nem de porta 80/443 liberada
+# pra internet). Só os caminhos de log e o pacote de instalação mudam.
+#
+# Nome usado: "dsp-lif.local", via mDNS (pacote avahi-daemon) — publica o
+# hostname da própria máquina (dsp-lif) como "dsp-lif.local" na rede local.
+# Windows 10/11 resolve isso nativamente (mDNS embutido no SO, sem precisar
+# instalar Bonjour nem nada). Só funciona bem em rede local plana, sem VLAN
+# entre os clientes e o servidor — se um dia isso virar problema, a
+# alternativa é cadastrar um registro DNS interno de verdade apontando pro
+# IP fixo desta máquina.
+
+dsp-lif.local {
+	tls internal
+
+	reverse_proxy localhost:3000
+
+	encode gzip
+
+	# Log de acesso vai pro journal (padrão do Caddy) — ver com:
+	#   journalctl -u caddy -f
+	# Log em arquivo próprio esbarra no perfil AppArmor do pacote Debian do
+	# Caddy por padrão; não vale a complicação pra esse uso interno.
+}

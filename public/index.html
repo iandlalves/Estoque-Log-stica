@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Central de Infraestrutura — Chamados</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23f15e5e'/%3E%3Ctext x='16' y='21' font-family='Arial,sans-serif' font-size='13' font-weight='700' fill='%23212529' text-anchor='middle'%3ECI%3C/text%3E%3C/svg%3E" />
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f5f5f7;
+    --surface: #ffffff;
+    --border: #e3e3e7;
+    --text: #212529;
+    --text-secondary: #6b7280;
+    --accent: #f15e5e;
+    --accent-ink: #212529;
+    --accent-blue: #2f6fb4;
+    --good: #2e7d32;
+    --good-bg: #e8f5e9;
+    --warning: #b3760f;
+    --warning-bg: #fdf1dc;
+    --critical: #c62828;
+    --critical-bg: #fdecec;
+    --neutral-bg: #eef0f2;
+    --radius: 10px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+  }
+
+  #app { display: flex; min-height: 100vh; }
+
+  /* --- Sidebar ------------------------------------------------------- */
+  .sidebar {
+    width: 230px;
+    flex: 0 0 230px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 20px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px 20px 8px;
+  }
+  .brand-chip {
+    width: 34px; height: 34px;
+    border-radius: 9px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+    flex: 0 0 34px;
+  }
+  .brand-text { font-weight: 700; font-size: 13.5px; line-height: 1.25; }
+  .brand-text small { display: block; font-weight: 400; color: var(--text-secondary); font-size: 11.5px; }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border-radius: 8px;
+    color: var(--text);
+    text-decoration: none;
+    cursor: pointer;
+    font-size: 13.5px;
+    border: none;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+  }
+  .nav-item:hover { background: var(--neutral-bg); }
+  .nav-item.active { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  .nav-icon { width: 18px; text-align: center; }
+
+  /* --- Main ------------------------------------------------------------ */
+  .main { flex: 1; padding: 26px 32px; min-width: 0; }
+  .section-title { font-size: 19px; font-weight: 700; margin: 0 0 4px 0; }
+  .section-desc { color: var(--text-secondary); margin: 0 0 18px 0; max-width: 780px; line-height: 1.5; }
+
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 16px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 12px; color: var(--text-secondary); }
+  .field input, .field select, .field textarea {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-size: 13.5px;
+    background: var(--surface);
+    color: var(--text);
+    font-family: inherit;
+  }
+  .field textarea { resize: vertical; min-height: 70px; }
+
+  .btn {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13.5px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .btn:hover { background: var(--neutral-bg); }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .btn.primary:hover { filter: brightness(0.96); }
+  .btn.ghost { background: transparent; border-color: transparent; }
+  .btn.small { padding: 5px 10px; font-size: 12.5px; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+  }
+
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+  .table-wrap.scroll { max-height: 520px; overflow-y: auto; }
+  .table-wrap.scroll thead th { position: sticky; top: 0; background: var(--surface); z-index: 1; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { color: var(--text-secondary); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.02em; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: var(--neutral-bg); }
+  tbody tr:last-child td { border-bottom: none; }
+  .empty-row td { color: var(--text-secondary); text-align: center; padding: 24px; cursor: default; }
+  .empty-row:hover { background: transparent; }
+
+  /* Rotatividade (aba Itens do Estoque) — a linha inteira é colorida em vez
+     de uma coluna/badge à parte (pedido explícito: mais fácil de bater o
+     olho na tabela toda). */
+  /* Rotatividade (Dashboard do Estoque) — a linha inteira é colorida em vez
+     de uma coluna/badge à parte (pedido explícito: mais fácil de bater o
+     olho na tabela toda). */
+  tbody tr.row-rotatividade-alta { background: var(--warning-bg); }
+  tbody tr.row-rotatividade-alta:hover { background: var(--warning-bg); filter: brightness(0.96); }
+  tbody tr.row-rotatividade-media { background: #e7eef7; }
+  tbody tr.row-rotatividade-media:hover { background: #e7eef7; filter: brightness(0.96); }
+  .legenda-rot { display: inline-block; padding: 1px 8px; border-radius: 999px; }
+  .legenda-rot-alta { background: var(--warning-bg); }
+  .legenda-rot-media { background: #e7eef7; }
+  /* Ficha do colaborador / equipamento (aba Termos do Estoque, 2026-10-09) */
+  .ficha-rotulo { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 3px; }
+  .ficha input:disabled { background: var(--neutral-bg); color: var(--text); -webkit-text-fill-color: var(--text); opacity: 1; border-color: transparent; cursor: default; }
+  tr.equip-linha { cursor: pointer; }
+  tr.equip-linha.aberta { background: var(--neutral-bg); }
+  tr.equip-ficha > td { background: var(--neutral-bg); padding: 6px 12px 14px 12px; }
+  .equip-seta { display: inline-block; width: 14px; color: var(--text-secondary); }
+  .stat-card.clicavel { cursor: pointer; }
+  .stat-card.clicavel:hover { border-color: var(--accent-blue); }
+  .busca-resultado { display: block; width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; font: inherit; color: inherit; }
+  .busca-resultado:hover { border-color: var(--accent-blue); background: var(--neutral-bg); }
+  .icone-lupa { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 4px 9px; cursor: pointer; font-size: 15px; }
+  .icone-lupa:hover { background: var(--neutral-bg); }
+
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .badge.status-aberto { background: var(--neutral-bg); color: var(--text); }
+  .badge.status-em_atendimento { background: #e7eef7; color: var(--accent-blue); }
+  .badge.status-aguardando_cliente { background: var(--warning-bg); color: var(--warning); }
+  .badge.status-finalizado { background: var(--good-bg); color: var(--good); }
+  .badge.status-cancelado { background: var(--neutral-bg); color: var(--text-secondary); }
+
+  .badge.prioridade-baixa { background: var(--neutral-bg); color: var(--text-secondary); }
+  .badge.prioridade-normal { background: #e7eef7; color: var(--accent-blue); }
+  .badge.prioridade-alta { background: var(--warning-bg); color: var(--warning); }
+  .badge.prioridade-urgente { background: var(--critical-bg); color: var(--critical); }
+
+  .badge.sla-cumprido { background: var(--good-bg); color: var(--good); }
+  .badge.sla-violado { background: var(--critical-bg); color: var(--critical); }
+  .badge.sla-pendente { background: var(--neutral-bg); color: var(--text-secondary); }
+
+  .kv { display: grid; grid-template-columns: 160px 1fr; gap: 8px 12px; font-size: 13.5px; }
+  .kv dt { color: var(--text-secondary); }
+  .kv dd { margin: 0; }
+
+  .detalhe-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 18px; align-items: start; }
+  @media (max-width: 900px) { .detalhe-grid { grid-template-columns: 1fr; } }
+
+  .historico-item, .comentario-item { padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .historico-item:last-child, .comentario-item:last-child { border-bottom: none; }
+  .historico-item .quando, .comentario-item .quando { color: var(--text-secondary); font-size: 11.5px; }
+  .comentario-item.interno { background: #fffbe8; border-radius: 8px; padding: 10px; margin-bottom: 6px; border-bottom: none; }
+
+  .toast {
+    position: fixed; bottom: 20px; right: 20px;
+    background: var(--text); color: #fff;
+    padding: 11px 16px; border-radius: 8px; font-size: 13.5px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+    z-index: 50;
+  }
+  .toast.erro { background: var(--critical); }
+
+  form.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  form.grid-2 .full { grid-column: 1 / -1; }
+
+  .muted { color: var(--text-secondary); }
+  .actions-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+
+  .filtro-row th { padding: 6px 12px; }
+  .filtro-row input, .filtro-row select {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 12.5px;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: normal;
+    color: var(--text);
+    background: var(--surface);
+    font-family: inherit;
+  }
+
+  .stat-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 18px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .stat-card .rotulo { color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.02em; }
+  .stat-card .valor { font-size: 26px; font-weight: 700; margin-top: 4px; }
+  .stat-card .valor.critical { color: var(--critical); }
+
+  .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 6px; }
+
+  /* --- Mobile ------------------------------------------------------- */
+  .mobile-topbar { display: none; }
+  .sidebar-overlay { display: none; }
+
+  @media (max-width: 720px) {
+    .mobile-topbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 30;
+    }
+    .mobile-topbar .brand-chip { width: 28px; height: 28px; font-size: 13px; flex: 0 0 28px; }
+    .mobile-topbar strong { font-size: 13.5px; }
+    .mobile-menu-btn {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      border-radius: 8px;
+      width: 36px; height: 36px;
+      font-size: 17px;
+      cursor: pointer;
+      flex: 0 0 36px;
+    }
+
+    #app { flex-direction: column; }
+    .sidebar {
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      width: 240px;
+      transform: translateX(-100%);
+      transition: transform 0.2s ease;
+      z-index: 50;
+      box-shadow: 2px 0 18px rgba(0,0,0,0.2);
+    }
+    .sidebar.open { transform: translateX(0); }
+    .sidebar-overlay.open {
+      display: block;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 40;
+    }
+
+    .main { padding: 16px; }
+    form.grid-2 { grid-template-columns: 1fr; }
+    .detalhe-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+  <div class="mobile-topbar" id="mobileTopbar">
+    <button class="mobile-menu-btn" onclick="toggleSidebarMobile()" aria-label="Abrir menu">&#9776;</button>
+    <div class="brand-chip">CI</div>
+    <strong>Central de Infraestrutura</strong>
+  </div>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebarMobile(false)"></div>
+  <div id="app">
+    <nav class="sidebar" id="sidebar"></nav>
+    <main class="main" id="main"></main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+# systemd unit — Central de Infraestrutura (equivalente Linux do serviço
+# Windows criado por scripts/instalar-servico-windows.ps1 via NSSM).
+#
+# Instalação (como root):
+#   cp deploy/central-infraestrutura.service /etc/systemd/system/
+#   systemctl daemon-reload
+#   systemctl enable --now central-infraestrutura
+#
+# Ver DEPLOY-LINUX.md pro passo a passo completo (criar o usuário
+# "central-infra", ajustar caminhos se o projeto não estiver em
+# /opt/central-infraestrutura, etc.).
+#
+# Comandos úteis:
+#   systemctl status central-infraestrutura
+#   systemctl restart central-infraestrutura
+#   journalctl -u central-infraestrutura -f      (logs em tempo real)
+
+[Unit]
+Description=Central de Infraestrutura (service desk proprio de Infraestrutura)
+Documentation=file:///opt/central-infraestrutura/README.md
+After=network.target
+
+[Service]
+Type=simple
+User=central-infra
+Group=central-infra
+WorkingDirectory=/opt/central-infraestrutura
+ExecStart=/usr/bin/node src/server.js
+Environment=PORT=3000
+Restart=on-failure
+RestartSec=5
+
+# Logs: por padrão vão pro journal (journalctl -u central-infraestrutura).
+# Se preferir arquivo de log igual ao Windows (logs/servidor.log), troque
+# as duas linhas abaixo por:
+#   StandardOutput=append:/opt/central-infraestrutura/logs/servidor.log
+#   StandardError=append:/opt/central-infraestrutura/logs/servidor-erro.log
+# (nesse caso, sem rotação automática — considere logrotate.)
+StandardOutput=journal
+StandardError=journal
+
+# Hardening básico — barato de manter, reduz superfície de ataque.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/central-infraestrutura/dados /opt/central-infraestrutura/logs
+
+[Install]
+WantedBy=multi-user.target

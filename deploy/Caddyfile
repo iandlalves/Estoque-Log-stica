@@ -1,0 +1,30 @@
+# Caddyfile — Central de Infraestrutura
+#
+# Coloca o Caddy na frente do site (que continua rodando em HTTP puro na
+# porta 3000, só acessível localmente) e serve HTTPS pra rede interna,
+# com certificado gerado e renovado automaticamente pelo próprio Caddy
+# (CA local, não é Let's Encrypt — não precisa de domínio público nem de
+# porta 80/443 liberada pra internet, funciona 100% dentro da rede).
+#
+# Troque "central-infra.empresa.local" abaixo pelo nome que sua equipe vai
+# usar pra acessar o site (ver README, seção "HTTPS com Caddy", pra como
+# apontar esse nome pro IP desta máquina no DNS interno ou no hosts de
+# cada um).
+
+# Sem DNS interno configurado — acesso pelo hostname da própria máquina
+# (NSP-I25), que já resolve sozinho pra quem está na mesma rede via
+# NetBIOS/mDNS. Cada pessoa recebe um aviso de certificado não confiável no
+# primeiro acesso, a menos que importe o certificado raiz do Caddy (ver
+# README, seção "HTTPS com Caddy").
+nsp-i25 {
+	tls internal
+
+	reverse_proxy localhost:3000
+
+	encode gzip
+
+	log {
+		output file "C:\Users\ialves\Documents\Claude Code\logs\caddy-acesso.log"
+		format json
+	}
+}

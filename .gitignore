@@ -1,0 +1,16 @@
+node_modules/
+dados/
+logs/
+.env
+*.log
+.deploy-pacote-*
+scripts/.deploy-pacote-*
+.t-*
+scripts/.t-*
+
+# Outros projetos que moram na mesma pasta
+06 - SCRIPTS/
+Instalador-VPN-Avaya/
+
+# Configuração local do Claude Code (guarda comandos com senhas)
+.claude/

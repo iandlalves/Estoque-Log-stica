@@ -1,0 +1,45 @@
+# Crontab — envios automáticos e backup da Central de Infraestrutura.
+# Equivalente Linux das Tarefas Agendadas do Windows (scripts/instalar-
+# resumo-estoque-agendado-windows.ps1, instalar-lembrete-estoque-agendado-
+# windows.ps1, instalar-backup-agendado-windows.ps1).
+#
+# Instalação (como o usuário que vai rodar os scripts — ex.: o mesmo
+# "central-infra" do systemd, pra já ter permissão de escrita em dados/):
+#   sudo -u central-infra crontab deploy/crontab-central-infraestrutura
+#
+# Ajuste o caminho abaixo (/opt/central-infraestrutura) se o projeto
+# estiver em outro lugar. PATH inclui /usr/bin pro "node" ser encontrado —
+# confira com "which node" se a instalação foi diferente (ex.: via nvm).
+#
+# Ver histórico de execução: journalctl -u cron (ou /var/log/syslog,
+# dependendo da distro) — cada script já imprime no stdout o que fez (ou
+# por que não fez nada, nos dias em que não é dia de enviar).
+
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+PROJETO=/opt/central-infraestrutura
+
+# Resumo de estoque — roda TODO DIA às 17h; o próprio script decide se hoje
+# é sexta-feira ou o último dia útil do mês (só nesses dias envia de fato).
+0 17 * * * cd $PROJETO && node scripts/enviar-resumo-estoque.js >> logs/resumo-estoque.log 2>&1
+
+# Lembrete de bater o estoque — roda TODO DIA às 8h; só envia de fato às
+# sextas-feiras.
+0 8 * * * cd $PROJETO && node scripts/enviar-lembrete-estoque.js >> logs/lembrete-estoque.log 2>&1
+
+# Backup diário do banco (VACUUM INTO + retenção automática de 30 dias) —
+# 2h da manhã, mesmo horário sugerido no instalador Windows.
+0 2 * * * cd $PROJETO && node scripts/backup.js >> logs/backup.log 2>&1
+
+# Lembrete do checklist do CPD — roda TODO DIA às 17h; só envia de fato se
+# hoje for dia útil E o checklist de hoje ainda não tiver sido feito.
+0 17 * * * cd $PROJETO && node scripts/enviar-lembrete-cpd.js >> logs/lembrete-cpd.log 2>&1
+
+# Monitor externo do serviço — roda a cada 5 minutos, confere /api/saude e
+# avisa por email só quando o estado muda (fora do ar / voltou ao ar),
+# com re-alerta a cada 2h enquanto continuar fora do ar (2026-09-17).
+*/5 * * * * cd $PROJETO && node scripts/monitorar-servico.js >> logs/monitor-servico.log 2>&1
+
+# NÃO tem entrada de cron pra importar chamados do Teams — isso roda como
+# serviço systemd próprio (--daemon, checa a cada 10s, bem mais perto de
+# tempo real do que o mínimo de 1 min do cron permitiria) — ver
+# deploy/central-infraestrutura-teams.service.

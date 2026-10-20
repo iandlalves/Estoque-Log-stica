@@ -1,0 +1,40 @@
+# systemd unit — importa chamados abertos via Teams (Power Automate grava
+# numa Lista do SharePoint, este processo fica checando ela e cria o
+# chamado de verdade — ver scripts/importar-chamados-teams.js e README,
+# seção "Integração com Teams").
+#
+# Serviço PRÓPRIO, separado do central-infraestrutura.service — roda em
+# modo --daemon (loop com checagem a cada 10s por padrão), bem mais perto
+# de tempo real do que o mínimo de 1 minuto que o cron permitiria.
+#
+# Instalação (como root):
+#   cp deploy/central-infraestrutura-teams.service /etc/systemd/system/
+#   systemctl daemon-reload
+#   systemctl enable --now central-infraestrutura-teams
+#
+# Comandos úteis:
+#   systemctl status central-infraestrutura-teams
+#   journalctl -u central-infraestrutura-teams -f
+
+[Unit]
+Description=Central de Infraestrutura - importar chamados do Teams (via Lista do SharePoint)
+After=network.target central-infraestrutura.service
+
+[Service]
+Type=simple
+User=central-infra
+Group=central-infra
+WorkingDirectory=/opt/central-infraestrutura
+ExecStart=/usr/bin/node scripts/importar-chamados-teams.js --daemon
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/central-infraestrutura/dados
+
+[Install]
+WantedBy=multi-user.target
