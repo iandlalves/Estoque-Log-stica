@@ -18,13 +18,17 @@ integração com a API do TomTicket foi removida de propósito, ver decisão
 abaixo). Dá pra considerar este site como o sucessor da ferramenta antiga
 pra fase "só Infra".
 
-**Instância só Estoque (2026-10-21).** Este repositório (Estoque-Log-stica)
-é a cópia usada pela instância "Estoque Logística", de outro departamento:
-mesmo código, com `APP_MODULOS=estoque` no `.env` — o menu e a API mostram
-só Estoque (Dashboard, Descarte, Atualizar) e Cadastros. Roda no mesmo
-servidor da Central em `https://192.168.62.194:8443`, com banco, `.env`,
-porta e serviço próprios. Instalação e deploy: `DEPLOY-LINUX.md`, seção 9.
-Sem `APP_MODULOS`, o comportamento é o da Central completa.
+**Instâncias só Estoque (2026-10-21).** Este repositório (Estoque-Log-stica)
+é a cópia usada pelas instâncias de Estoque de outros departamentos —
+Estoque Logística (`https://estoque-logistica.telehelp.local`), Estoque
+Reversa (`estoque-reversa`), Estoque Dimps (`estoque-dimps`) e Estoque ATOP
+(`estoque-atop`), todas `.telehelp.local` no mesmo servidor da Central, lista
+em `deploy/instancias.conf`. Mesmo código, com `APP_MODULOS=estoque` no
+`.env` — o menu e a API mostram só Estoque (Dashboard, Descarte, Atualizar)
+e Cadastros. Rodam no mesmo servidor da Central, cada uma com banco,
+`.env`, porta, serviço e cookie de sessão próprios. Instalação e deploy:
+`DEPLOY-LINUX.md`, seção 9. Sem `APP_MODULOS`, o comportamento é o da
+Central completa.
 
 ## Requisitos
 

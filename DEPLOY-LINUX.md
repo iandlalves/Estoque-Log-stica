@@ -251,7 +251,7 @@ arquivos temporários da leitura ficam em `dados/ocr-tmp/` (apagados na hora).
 Variáveis opcionais no `.env`: `OCR_TESSERACT_BIN`, `OCR_PDFTOPPM_BIN`,
 `OCR_IDIOMA` (padrão `por`), `OCR_DPI` (padrão `300`).
 
-## 9. Segunda instância: Estoque Logística (só Estoque, outro departamento)
+## 9. Instâncias de Estoque (Logística, Reversa, Dimps, ATOP)
 
 Mesmo código da Central, com um interruptor de módulos no `.env`
 (`APP_MODULOS=estoque`, ver `src/lib/modulos.js`): o menu e a API mostram
@@ -261,125 +261,148 @@ Segurança, Colaboradores, Termos e Equipamentos móveis não aparecem e as
 rotas deles respondem 404. Entrega a colaborador continua existindo em
 Atualizar, mas não gera termo.
 
-Roda no **mesmo servidor** da Central, com tudo próprio — nada é
-compartilhado:
+Cada instância roda no **mesmo servidor** da Central, com tudo próprio —
+pasta, usuário, banco (`dados/`), `.env`, porta, serviço, site no Caddy,
+cookie de sessão e agendamentos. A lista mora em
+[`deploy/instancias.conf`](deploy/instancias.conf):
 
-| | Central | Estoque Logística |
+| Instância | Endereço | Endereço antigo (só redireciona) | Porta interna | Pasta / serviço | Usuário |
+|---|---|---|---|---|---|
+| Estoque Logística | `https://estoque-logistica.telehelp.local` | `https://192.168.62.194:8443` | 3001 | `estoque-logistica` | `estoque-log` |
+| Estoque Reversa | `https://estoque-reversa.telehelp.local` | `https://192.168.62.194:8444` | 3002 | `estoque-reversa` | `estoque-reversa` |
+| Estoque Dimps | `https://estoque-dimps.telehelp.local` | `https://192.168.62.194:8445` | 3003 | `estoque-dimps` | `estoque-dimps` |
+| Estoque ATOP | `https://estoque-atop.telehelp.local` | `https://192.168.62.194:8446` | 3004 | `estoque-atop` | `estoque-atop` |
+
+(Pasta = `/opt/<nome>`; Central continua em `https://192.168.62.194`, porta
+3000, `/opt/central-infraestrutura` — **cada repositório atualiza só as
+suas instâncias**.) Todas as instâncias ficam na porta 443 do mesmo Caddy da
+Central — ele escolhe o site pelo nome digitado no navegador.
+
+Pra criar uma instância nova: acrescente uma linha no `instancias.conf`
+(porta, porta HTTPS antiga, minuto do backup e nome DNS que ninguém mais
+usa) e siga 9.1–9.3.
+
+**Cookie de sessão:** o navegador separa cookie por nome de host (não por
+porta). Com um nome por instância isso já fica separado; mesmo assim cada
+instância usa um nome de cookie próprio (`COOKIE_NOME=sessao_<instância>`
+no `.env`), pra não derrubar a sessão da Central se alguém acessar pelo IP.
+
+### 9.1. DNS e Azure (uma vez por instância, ANTES de instalar)
+
+**DNS interno** — pedir a quem administra o DNS do Active Directory, na zona
+`telehelp.local`, um registro **A** por instância, todos apontando pro IP do
+servidor (o mesmo da Central):
+
+| Nome | Tipo | Valor |
 |---|---|---|
-| Endereço | `https://192.168.62.194` | `https://192.168.62.194:8443` |
-| Pasta | `/opt/central-infraestrutura` | `/opt/estoque-logistica` |
-| Usuário do sistema | `central-infra` | `estoque-log` |
-| Porta interna | 3000 | 3001 |
-| Serviço systemd | `central-infraestrutura` | `estoque-logistica` |
-| Banco / `dados/` / `.env` | os dela | os dela |
-| Backups do código (deploy) | `/opt/central-infraestrutura-backups` | `/opt/estoque-logistica-backups` |
-| Repositório | Central-de-Infraestrutura | Estoque-Log-stica (este) |
+| `estoque-logistica` | A | `192.168.62.194` |
+| `estoque-reversa` | A | `192.168.62.194` |
+| `estoque-dimps` | A | `192.168.62.194` |
+| `estoque-atop` | A | `192.168.62.194` |
 
-**Cada repositório atualiza só a sua instância.** `bash scripts/deploy.sh`
-daqui vai pra `/opt/estoque-logistica` (padrões já apontam pra lá) e se
-recusa a mandar este código pra pasta da Central.
+Conferir de um PC da rede (`nslookup estoque-reversa.telehelp.local`) e do
+próprio servidor (`getent hosts estoque-reversa.telehelp.local`) — os dois
+têm que devolver `192.168.62.194`. O instalador se recusa a seguir se o
+servidor não resolver o nome (o endereço antigo passaria a redirecionar pra
+um nome inexistente); pra instalar antes, numa instância que ninguém usa
+ainda: `SEM_DNS=1 bash .../instalar-instancia-estoque.sh ...`.
 
-### 9.1. Usuário, pasta e código
+**Azure** — no App Registration da Central (Entra ID → App registrations →
+o app → Authentication → Web → Adicionar URI), um Redirect URI por
+instância:
 
-```bash
-sudo useradd --system --create-home --home-dir /opt/estoque-logistica --shell /usr/sbin/nologin estoque-log
-sudo -u estoque-log git clone https://github.com/iandlalves/Estoque-Log-stica.git /opt/estoque-logistica
-cd /opt/estoque-logistica
-sudo -u estoque-log npm install --omit=dev
-sudo -u estoque-log mkdir -p dados logs
+```
+https://estoque-logistica.telehelp.local/api/auth/entra/callback
+https://estoque-reversa.telehelp.local/api/auth/entra/callback
+https://estoque-dimps.telehelp.local/api/auth/entra/callback
+https://estoque-atop.telehelp.local/api/auth/entra/callback
 ```
 
-(Ou, sem acesso ao GitHub no servidor: crie a pasta vazia com o dono certo e
-rode `bash scripts/deploy.sh` do Windows — ele manda o código e roda o
-`npm install`. Vai falhar no health check até o serviço existir, e tudo bem.)
+Os antigos com `192.168.62.194:8443` podem ser removidos depois que a
+Logística estiver no nome novo (o login sempre usa o `APP_BASE_URL`, que
+passa a ser o nome DNS).
 
-### 9.2. `.env`
+### 9.2. Instalar (no servidor, sem git)
 
-```bash
-sudo -u estoque-log cp deploy/estoque-logistica.env.example .env
-sudo -u estoque-log nano .env
+No Windows (PowerShell, na raiz deste repositório), gere e mande o pacote:
+
+```powershell
+tar -czf "$env:TEMP\estoque.tar.gz" src public prisma scripts deploy package.json package-lock.json README.md DEPLOY-LINUX.md .env.example
+scp "$env:TEMP\estoque.tar.gz" suporte@192.168.62.194:/tmp/estoque.tar.gz
 ```
 
-Preencha `GRAPH_*` (os mesmos da Central — mesmo App Registration),
-`MAIL_FROM`, `MAIL_TO` e, se quiser destinatários diferentes pro resumo
-semanal, `RESUMO_ESTOQUE_TO`/`RESUMO_ESTOQUE_CC`/`LEMBRETE_ESTOQUE_TO`.
-Numa instância com `APP_MODULOS` os scripts **não** usam os destinatários
-padrão da Central — sem essas variáveis, vai tudo pro `MAIL_TO` daqui.
-
-**Login com Microsoft:** no App Registration (Azure Portal → Entra ID → App
-registrations → o mesmo app da Central → Authentication → Web), adicione um
-segundo Redirect URI: `https://192.168.62.194:8443/api/auth/entra/callback`.
-O da Central continua lá.
-
-### 9.3. Primeiro gestor
-
-Sem o módulo Chamados, o login com Microsoft **não cria conta sozinho** —
-só entra quem estiver em Cadastros → Atendentes. Cadastre o primeiro
-gestor direto no banco desta instância:
+No servidor (`ssh suporte@192.168.62.194`):
 
 ```bash
-sudo -u estoque-log bash -c 'cd /opt/estoque-logistica && node scripts/criar-gestor.js "email@telehelp.com.br" "Nome da Pessoa"'
+rm -rf /tmp/estoque-src && mkdir -p /tmp/estoque-src && tar -xzf /tmp/estoque.tar.gz -C /tmp/estoque-src
+bash /tmp/estoque-src/scripts/instalar-instancia-estoque.sh reversa "email.do.gestor@telehelp.com.br" "Nome do Gestor" "quem.recebe.resumo@telehelp.com.br"
 ```
 
-Depois, essa pessoa cadastra o resto da equipe pela tela (Cadastros →
-Atendentes): **Atendente** usa o estoque; **Líder/Gestor** também corrigem
-e excluem lançamentos; **Gestor** ou **Administrador total** acessa
-Cadastros.
+Troque `reversa` por `dimps`, `atop` ou `logistica`. O script
+([`scripts/instalar-instancia-estoque.sh`](scripts/instalar-instancia-estoque.sh)):
+cria usuário e pasta, copia o código, instala dependências (ou copia as da
+Central, se o servidor não alcançar o npm), gera o `.env` (GRAPH_* e
+MAIL_FROM copiados do `.env` da Central), cadastra o primeiro gestor, cria
+o serviço systemd, acrescenta o site no Caddy (arquivo
+`/etc/caddy/estoque-<instância>.caddy` + uma linha `import` no Caddyfile da
+Central, com cópia de segurança antes), libera a porta no ufw (se ativo) e
+instala a crontab.
 
-### 9.4. Serviço
-
-```bash
-sudo cp deploy/estoque-logistica.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now estoque-logistica
-curl -s http://localhost:3001/api/saude
-curl -s http://localhost:3001/api/config    # deve listar só "estoque"
-```
-
-### 9.5. Caddy (porta 8443)
-
-Não sobrescreva o `/etc/caddy/Caddyfile` (é o da Central). O site novo
-fica num arquivo à parte, incluído por uma linha `import`:
-
-```bash
-sudo cp deploy/Caddyfile.estoque-logistica /etc/caddy/estoque-logistica.caddy
-echo 'import /etc/caddy/estoque-logistica.caddy' | sudo tee -a /etc/caddy/Caddyfile
-sudo caddy validate --config /etc/caddy/Caddyfile
-sudo systemctl reload caddy
-```
-
-Se o servidor tiver firewall ligado (`sudo ufw status`), libere a porta:
-`sudo ufw allow 8443/tcp`.
+Pode rodar de novo: não sobrescreve o `.env` nem o banco. Rodar de novo na
+Logística (instalada antes desta versão) acrescenta o `COOKIE_NOME` que
+faltava, troca o `APP_BASE_URL` pro nome DNS e passa o endereço antigo
+(`:8443`) a redirecionar pro nome novo — banco e usuários continuam.
 
 **Atenção:** se alguém reinstalar o Caddyfile da Central com o
-`cp deploy/Caddyfile.linux /etc/caddy/Caddyfile` da seção 6, a linha
-`import` some e a instância de Estoque fica fora do ar — rode o `echo ...
-| sudo tee -a` acima de novo.
+`cp deploy/Caddyfile.linux /etc/caddy/Caddyfile` da seção 6, as linhas
+`import` somem e as instâncias de Estoque ficam fora do ar — rode o
+instalador de cada uma de novo.
 
-O certificado é da mesma CA interna do Caddy: quem já confia na Central
-não vê aviso novo.
+### 9.3. Primeiro acesso e equipe
 
-### 9.6. Envios agendados, backup e monitor
+Sem o módulo Chamados, o login com Microsoft **não cria conta sozinho** — só
+entra quem está em Cadastros → Atendentes daquela instância. O instalador
+cadastra o primeiro gestor; pra outro gestor depois:
 
 ```bash
-sudo -u estoque-log crontab deploy/crontab-estoque-logistica
-sudo -u estoque-log crontab -l
+sudo -u estoque-reversa bash -c 'cd /opt/estoque-reversa && node scripts/criar-gestor.js "email@telehelp.com.br" "Nome"'
 ```
 
-O backup sai em `/opt/estoque-logistica/dados/backups/estoque-logistica-*.db`
-(prefixo `BACKUP_PREFIXO`); o monitor confere a porta do `PORT` do `.env`.
-Backup manual: `sudo -u estoque-log bash -c 'cd /opt/estoque-logistica && node scripts/backup.js'`.
+O gestor cadastra o resto da equipe pela tela: **Atendente** usa o estoque;
+**Líder/Gestor** também corrigem e excluem lançamentos; **Gestor** ou
+**Administrador total** acessa Cadastros.
 
-### 9.7. Atualizando depois
+### 9.4. Atualizando depois (deploy)
 
-Do Windows, na raiz deste repositório: `bash scripts/deploy.sh`. A Central
-continua sendo atualizada pelo repositório dela, do jeito de sempre.
+Do Windows (Git Bash), na raiz deste repositório:
 
-### 9.8. Checklist
+```bash
+bash scripts/deploy.sh reversa        # uma
+bash scripts/deploy.sh dimps atop     # várias
+bash scripts/deploy.sh todas          # todas do instancias.conf
+```
 
-- [ ] `systemctl status estoque-logistica` → `active (running)`
-- [ ] `curl -s http://localhost:3001/api/config` → `"modulos":["estoque"]`
-- [ ] `https://192.168.62.194:8443` abre com cadeado; `https://192.168.62.194` (Central) continua igual
-- [ ] Login com Microsoft funciona com o gestor criado em 9.3, e uma conta não cadastrada é recusada
-- [ ] Menu mostra só Estoque e Cadastros
-- [ ] `sudo -u estoque-log crontab -l` mostra as 4 linhas
+Um pacote e uma conexão SSH; cada instância tem backup do código em
+`/opt/estoque-<instância>-backups/` e volta sozinha à versão anterior se o
+`/api/saude` não responder depois do restart.
+
+### 9.5. Backup, envios e monitor
+
+Cada instância tem a própria crontab (`sudo -u <usuário> crontab -l`):
+resumo de estoque (sexta / último dia útil, 17h), lembrete (sexta, 8h),
+backup (2h15/2h20/2h25/2h30) e monitor (a cada 5 min). Backups em
+`/opt/estoque-<instância>/dados/backups/estoque-<instância>-*.db`.
+Destinatários vêm do `.env` da instância (`RESUMO_ESTOQUE_TO/CC`,
+`LEMBRETE_ESTOQUE_TO`, senão `MAIL_TO`) — nunca os padrões da Central.
+
+Backup manual:
+`sudo -u estoque-reversa bash -c 'cd /opt/estoque-reversa && node scripts/backup.js'`.
+
+### 9.6. Checklist (por instância)
+
+- [ ] `systemctl status estoque-<instância>` → `active (running)`
+- [ ] `curl -s http://localhost:<porta>/api/config` → nome certo e `"modulos":["estoque"]`
+- [ ] `https://<nome_dns>` abre com cadeado; o endereço antigo `https://192.168.62.194:<porta_https>` redireciona pra ele; a Central continua igual
+- [ ] Login funciona com o gestor; conta não cadastrada é recusada
+- [ ] Entrar numa instância não desloga da Central nem das outras
+- [ ] `sudo -u <usuário> crontab -l` mostra as 4 linhas

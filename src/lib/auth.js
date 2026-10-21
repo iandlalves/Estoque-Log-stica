@@ -7,7 +7,12 @@
 const crypto = require('node:crypto');
 
 const SESSAO_DURACAO_MS = 7 * 24 * 60 * 60 * 1000; // 7 dias
-const COOKIE_NOME = 'sessao';
+// COOKIE_NOME (2026-10-21): o navegador separa cookie por host, NÃO por
+// porta — a Central (192.168.62.194) e as instâncias de Estoque
+// (192.168.62.194:8443, :8444...) dividiriam o mesmo cookie "sessao", e
+// entrar numa derrubaria a sessão da outra. Cada instância define o seu no
+// .env (ex.: sessao_reversa); a Central continua com "sessao".
+const COOKIE_NOME = process.env.COOKIE_NOME || 'sessao';
 
 function gerarToken() {
   return crypto.randomBytes(32).toString('hex');
@@ -117,6 +122,7 @@ function departamentosVisiveisPor(db, atendente) {
 
 module.exports = {
   SESSAO_DURACAO_MS,
+  COOKIE_NOME,
   gerarToken,
   lerCookies,
   definirCookieSessao,

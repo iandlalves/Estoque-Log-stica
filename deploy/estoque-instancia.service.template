@@ -1,0 +1,37 @@
+# systemd unit — @NOME@ (instância só-Estoque da Central de Infraestrutura).
+# Gerado por scripts/instalar-instancia-estoque.sh a partir de
+# deploy/estoque-instancia.service.template (valores em deploy/instancias.conf).
+# Mesmo servidor da Central, mas pasta, usuário, banco, .env, porta e
+# serviço próprios — nada é compartilhado.
+#
+# Comandos úteis:
+#   systemctl status estoque-@SLUG@
+#   systemctl restart estoque-@SLUG@
+#   journalctl -u estoque-@SLUG@ -f      (logs em tempo real)
+
+[Unit]
+Description=@NOME@ (instancia so-Estoque da Central de Infraestrutura)
+Documentation=file:///opt/estoque-@SLUG@/DEPLOY-LINUX.md
+After=network.target
+
+[Service]
+Type=simple
+User=@USUARIO@
+Group=@USUARIO@
+WorkingDirectory=/opt/estoque-@SLUG@
+ExecStart=/usr/bin/node src/server.js
+# PORT também está no .env (os scripts do cron leem de lá).
+Environment=PORT=@PORTA@
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Hardening básico — mesmo da Central.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/estoque-@SLUG@/dados /opt/estoque-@SLUG@/logs
+
+[Install]
+WantedBy=multi-user.target

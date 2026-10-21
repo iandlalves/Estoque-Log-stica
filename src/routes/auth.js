@@ -1,12 +1,13 @@
 const express = require('express');
-const { gerarToken, definirCookieSessao, limparCookieSessao, lerCookies, SESSAO_DURACAO_MS } = require('../lib/auth');
+const { gerarToken, definirCookieSessao, limparCookieSessao, lerCookies, SESSAO_DURACAO_MS, COOKIE_NOME } = require('../lib/auth');
 const { gerarState, gerarUrlLogin, trocarCodigoPorConta } = require('../lib/authEntra');
 const { moduloAtivo, APP_NOME } = require('../lib/modulos');
 
 // Cookie curto só pra checar CSRF na volta do login (proteção contra
 // alguém forjar um redirect de callback com um "state" adivinhado) — 5
 // min é mais que suficiente pra completar o login na tela da Microsoft.
-const STATE_COOKIE = 'entra_state';
+// Mesmo motivo do COOKIE_NOME (src/lib/auth.js): um por instância no mesmo host.
+const STATE_COOKIE = `${COOKIE_NOME}_entra_state`;
 const COOKIE_SECURE = process.env.COOKIE_SECURE === 'true';
 
 function authRouter(db) {
@@ -76,7 +77,7 @@ function authRouter(db) {
 
   router.post('/logout', (req, res) => {
     const cookies = lerCookies(req);
-    const token = cookies.sessao;
+    const token = cookies[COOKIE_NOME];
     if (token) db.prepare(`DELETE FROM sessoes WHERE token = ?`).run(token);
     limparCookieSessao(res);
     res.json({ ok: true });
@@ -90,7 +91,7 @@ function authRouter(db) {
   // numa checagem que é rotina, não falha.
   router.get('/eu', (req, res) => {
     const cookies = lerCookies(req);
-    const token = cookies.sessao;
+    const token = cookies[COOKIE_NOME];
     if (!token) return res.json({ logado: false });
 
     const sessao = db.prepare(`SELECT * FROM sessoes WHERE token = ?`).get(token);

@@ -27,7 +27,8 @@ sudo tar -cf - -C "$REMOTE_DIR" --exclude='node_modules' --exclude='dados' --exc
 
 echo "==> Extraindo pacote novo por cima (preserva dados/ e .env, que nem estão no pacote)..."
 sudo tar -xzf "$PACOTE_REMOTO" -C "$REMOTE_DIR"
-rm -f "$PACOTE_REMOTO"
+# Deploy de várias instâncias (scripts/deploy.sh) reaproveita o mesmo pacote.
+[ "${MANTER_PACOTE:-0}" = "1" ] || rm -f "$PACOTE_REMOTO"
 
 echo "==> Instalando dependências (rápido se package.json não mudou; até 30s, não trava o deploy se o servidor não tiver acesso ao registro do npm)..."
 if ! sudo -u "$SERVICE_USER" timeout 30 bash -c "cd '$REMOTE_DIR' && npm install --omit=dev --silent"; then
