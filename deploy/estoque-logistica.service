@@ -1,0 +1,42 @@
+# systemd unit — Estoque Logística (2026-10-21): segunda instância do
+# mesmo código da Central de Infraestrutura, só com o módulo Estoque
+# (APP_MODULOS=estoque no .env), pra outro departamento. Roda no MESMO
+# servidor que a Central, mas com pasta, usuário, banco (dados/), .env,
+# porta (3001) e serviço próprios — nada é compartilhado com a Central.
+#
+# Instalação (como root) — ver DEPLOY-LINUX.md, seção "Segunda instância":
+#   cp deploy/estoque-logistica.service /etc/systemd/system/
+#   systemctl daemon-reload
+#   systemctl enable --now estoque-logistica
+#
+# Comandos úteis:
+#   systemctl status estoque-logistica
+#   systemctl restart estoque-logistica
+#   journalctl -u estoque-logistica -f      (logs em tempo real)
+
+[Unit]
+Description=Estoque Logistica (instancia so-Estoque da Central de Infraestrutura)
+Documentation=file:///opt/estoque-logistica/DEPLOY-LINUX.md
+After=network.target
+
+[Service]
+Type=simple
+User=estoque-log
+Group=estoque-log
+WorkingDirectory=/opt/estoque-logistica
+ExecStart=/usr/bin/node src/server.js
+# PORT também precisa estar no .env (os scripts do cron leem de lá).
+Environment=PORT=3001
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Hardening básico — mesmo da Central.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/estoque-logistica/dados /opt/estoque-logistica/logs
+
+[Install]
+WantedBy=multi-user.target

@@ -31,7 +31,9 @@ function listaEnv(nome, padrao) {
     return;
   }
 
-  const destinatarios = listaEnv('LEMBRETE_ESTOQUE_TO', 'ian.alves@telehelp.com.br,lauan.silva@telehelp.com.br');
+  // Mesma regra do resumo: padrão embutido só vale pra Central (sem
+  // APP_MODULOS); numa instância de outro departamento cai no MAIL_TO dela.
+  const destinatarios = listaEnv('LEMBRETE_ESTOQUE_TO', process.env.APP_MODULOS ? '' : 'ian.alves@telehelp.com.br,lauan.silva@telehelp.com.br');
   const assunto = 'Lembrete: bater o estoque hoje';
   const texto = 'Lembrete semanal: hoje é sexta-feira, não esqueçam de bater o estoque antes do resumo da tarde sair.';
   const html = `<p>Lembrete semanal: hoje é sexta-feira, não esqueçam de bater o estoque antes do resumo da tarde sair.</p>`;

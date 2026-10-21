@@ -1,0 +1,27 @@
+# Crontab — Estoque Logística (2026-10-21). Mesmos scripts da Central, mas
+# rodando na pasta desta instância (e com o .env dela): resumo de estoque,
+# lembrete de bater o estoque, backup e monitor. Sem CPD/Teams — esses
+# módulos não existem aqui.
+#
+# Instalação (como o usuário do serviço desta instância):
+#   sudo -u estoque-log crontab deploy/crontab-estoque-logistica
+#   sudo -u estoque-log crontab -l
+#
+# Destinatários vêm do .env DESTA instância (RESUMO_ESTOQUE_TO/CC,
+# LEMBRETE_ESTOQUE_TO, senão MAIL_TO) — nunca os padrões da Central.
+
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+PROJETO=/opt/estoque-logistica
+
+# Resumo de estoque — todo dia às 17h; só envia sexta-feira / último dia útil do mês.
+0 17 * * * cd $PROJETO && node scripts/enviar-resumo-estoque.js >> logs/resumo-estoque.log 2>&1
+
+# Lembrete de bater o estoque — todo dia às 8h; só envia sexta-feira.
+0 8 * * * cd $PROJETO && node scripts/enviar-lembrete-estoque.js >> logs/lembrete-estoque.log 2>&1
+
+# Backup diário do banco desta instância (BACKUP_PREFIXO no .env) — 2h15,
+# depois do backup da Central (2h), pra não disputarem disco.
+15 2 * * * cd $PROJETO && node scripts/backup.js >> logs/backup.log 2>&1
+
+# Monitor — a cada 5 min confere http://localhost:$PORT/api/saude (PORT do .env).
+*/5 * * * * cd $PROJETO && node scripts/monitorar-servico.js >> logs/monitor-servico.log 2>&1

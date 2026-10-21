@@ -14,8 +14,11 @@ set -euo pipefail
 : "${SERVICE:?defina SERVICE}"
 : "${SERVICE_USER:?defina SERVICE_USER}"
 : "${HEALTH_URL:?defina HEALTH_URL}"
+# Pasta de backups do código, uma por instância (2026-10-21) — antes era
+# fixa em /opt/central-infraestrutura-backups.
+BACKUP_BASE="${BACKUP_BASE:-${REMOTE_DIR}-backups}"
 
-BACKUP_DIR="/opt/central-infraestrutura-backups/$TIMESTAMP"
+BACKUP_DIR="$BACKUP_BASE/$TIMESTAMP"
 
 echo "==> Backup do código atual em $BACKUP_DIR..."
 sudo mkdir -p "$BACKUP_DIR"
@@ -50,8 +53,8 @@ done
 if [ "$OK" = "1" ]; then
   echo "==> Deploy OK — serviço respondendo."
   # Mantém só os 5 backups mais recentes, pra não acumular disco.
-  if [ -d /opt/central-infraestrutura-backups ]; then
-    (cd /opt/central-infraestrutura-backups && ls -1t | tail -n +6 | xargs -r sudo rm -rf)
+  if [ -d "$BACKUP_BASE" ]; then
+    (cd "$BACKUP_BASE" && ls -1t | tail -n +6 | xargs -r sudo rm -rf)
   fi
 else
   echo "==> FALHOU — /api/saude não respondeu depois do restart. Restaurando backup anterior..."

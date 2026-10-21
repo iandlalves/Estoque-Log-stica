@@ -1,0 +1,16 @@
+# Site do Caddy — Estoque Logística (2026-10-21). NÃO substitui o
+# /etc/caddy/Caddyfile da Central: é um arquivo à parte, incluído nele por
+# uma linha "import" (ver DEPLOY-LINUX.md, seção "Segunda instância").
+#
+# Mesmo nome da Central (dsp-lif.local, via mDNS/avahi), outra porta: assim
+# não precisa de registro DNS novo. Acesso: https://dsp-lif.local:8443
+# Mesma CA interna do Caddy — quem já confia no certificado da Central não
+# vê aviso novo.
+
+dsp-lif.local:8443 {
+	tls internal
+
+	reverse_proxy localhost:3001
+
+	encode gzip
+}

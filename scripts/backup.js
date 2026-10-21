@@ -20,7 +20,10 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { db } = require('../src/lib/db');
 
-const PREFIXO_ARQUIVO = 'central-infraestrutura-';
+// BACKUP_PREFIXO (2026-10-21): cada instância no mesmo servidor nomeia os
+// próprios backups (ex.: "estoque-logistica-"), pra um arquivo nunca ser
+// confundido com o da Central — nem apagado pela retenção da outra.
+const PREFIXO_ARQUIVO = process.env.BACKUP_PREFIXO || 'central-infraestrutura-';
 
 const BACKUP_DIR = process.argv[2] || process.env.BACKUP_DIR || path.join(__dirname, '..', 'dados', 'backups');
 const RETENCAO_DIAS = Number(process.argv[3] || process.env.BACKUP_RETENCAO_DIAS || 30);

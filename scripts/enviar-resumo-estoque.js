@@ -50,8 +50,12 @@ function listaEnv(nome, padrao) {
   }
 
   try {
-    const destinatarios = listaEnv('RESUMO_ESTOQUE_TO', 'rodrigo.orsoni@telehelp.com.br');
-    const cc = listaEnv('RESUMO_ESTOQUE_CC', 'suporte@telehelp.com.br');
+    // Padrões embutidos são da Central (Infra). Numa instância com
+    // APP_MODULOS definido (ex.: só Estoque, de outro departamento) não há
+    // padrão — sem RESUMO_ESTOQUE_TO cai no MAIL_TO da própria instância.
+    const daCentral = !process.env.APP_MODULOS;
+    const destinatarios = listaEnv('RESUMO_ESTOQUE_TO', daCentral ? 'rodrigo.orsoni@telehelp.com.br' : '');
+    const cc = listaEnv('RESUMO_ESTOQUE_CC', daCentral ? 'suporte@telehelp.com.br' : '');
     const resumo = calcularResumoEstoque(db);
     const { assunto, texto, html } = formatarResumoEmail(resumo);
     const enviadoPara = await enviarEmail({ assunto, texto, html, destinatarios, cc });

@@ -1,6 +1,7 @@
 const express = require('express');
 const { gerarToken, definirCookieSessao, limparCookieSessao, lerCookies, SESSAO_DURACAO_MS } = require('../lib/auth');
 const { gerarState, gerarUrlLogin, trocarCodigoPorConta } = require('../lib/authEntra');
+const { moduloAtivo, APP_NOME } = require('../lib/modulos');
 
 // Cookie curto só pra checar CSRF na volta do login (proteção contra
 // alguém forjar um redirect de callback com um "state" adivinhado) — 5
@@ -44,6 +45,14 @@ function authRouter(db) {
       // cadastre antes — é o "qualquer colaborador pode abrir um chamado".
       // Continua bloqueando quem JÁ existe mas foi desativado (ativo=0) —
       // isso é decisão deliberada de alguém, não deve reabrir sozinho.
+      // Sem o módulo Chamados (ex.: instância só Estoque) não existe nada pra
+      // um Operador fazer — então nada de autocadastro: só entra quem um
+      // Gestor já cadastrou (ou scripts/criar-gestor.js, pro primeiro).
+      if (!atendente && !moduloAtivo('chamados')) {
+        return res
+          .status(403)
+          .send(`Login na Microsoft feito com sucesso (${email}), mas essa conta não tem acesso a ${APP_NOME}. Peça pra um Gestor cadastrar você em Cadastros &gt; Atendentes.`);
+      }
       if (!atendente) {
         const info = db
           .prepare(`INSERT INTO atendentes (nome, email, papel) VALUES (?, ?, 'operador')`)
@@ -52,7 +61,7 @@ function authRouter(db) {
       } else if (!atendente.ativo) {
         return res
           .status(403)
-          .send(`Login na Microsoft feito com sucesso (${email}), mas essa conta está desativada na Central de Infraestrutura. Peça pra um Gestor reativar em Cadastros &gt; Atendentes.`);
+          .send(`Login na Microsoft feito com sucesso (${email}), mas essa conta está desativada em ${APP_NOME}. Peça pra um Gestor reativar em Cadastros &gt; Atendentes.`);
       }
 
       const token = gerarToken();

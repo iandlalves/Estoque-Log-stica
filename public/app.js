@@ -31,6 +31,10 @@ const SATISFACAO_LABEL = {
 
 const state = {
   view: 'login',
+  // Nome e módulos ligados nesta instância (GET /api/config, ver
+  // src/lib/modulos.js) — a Central completa tem todos; uma instância "só
+  // Estoque" esconde o resto do menu, das abas e de Cadastros.
+  config: { nome: 'Central de Infraestrutura', modulos: [] },
   eu: null, // { id, nome, email } de quem está logado; null = não logado
   chamadoId: null,
   filtros: { status: '', departamentoId: '', categoriaId: '', atendenteId: '', busca: '', page: 1 },
@@ -52,6 +56,25 @@ const state = {
 };
 
 // --- Utilidades ------------------------------------------------------------
+
+function temModulo(nome) {
+  return state.config.modulos.includes(nome);
+}
+
+// Marca (sidebar, tela de login, barra do celular) — o subtítulo muda
+// numa instância sem Chamados, onde "motor de chamados" não faz sentido.
+function siglaMarca() {
+  // Iniciais das palavras com mais de 2 letras: "Central de Infraestrutura" → "CI".
+  return state.config.nome.split(/[\s-]+/).filter((p) => p.length > 2).map((p) => p[0]).join('').slice(0, 2).toUpperCase() || 'CI';
+}
+
+function marcaHtml() {
+  const subtitulo = temModulo('chamados') ? 'Motor de chamados próprio' : 'Controle de estoque';
+  return `
+    <div class="brand-chip">${esc(siglaMarca())}</div>
+    <div class="brand-text">${esc(state.config.nome)}<small>${esc(subtitulo)}</small></div>
+  `;
+}
 
 function esc(s) {
   if (s === null || s === undefined) return '';
@@ -154,10 +177,11 @@ function toggleSidebarMobile(forcar) {
 }
 
 async function carregarReferencias() {
+  const chamados = temModulo('chamados'); // categorias/subcategorias só existem com Chamados ligado
   const [departamentos, categorias, subcategorias, atendentes] = await Promise.all([
     api('/departamentos'),
-    api('/categorias'),
-    api('/subcategorias'),
+    chamados ? api('/categorias') : [],
+    chamados ? api('/subcategorias') : [],
     api('/atendentes'),
   ]);
   state.ref = { departamentos, categorias, subcategorias, atendentes };
@@ -173,23 +197,20 @@ function renderSidebar() {
   // "Chamados") é só pra quem atende (Atendente/Líder/Gestor). A segurança
   // de verdade já está no backend (rotas gated por papel) — isso aqui é só
   // não oferecer na UI o que a pessoa não pode usar mesmo.
-  const itens = state.eu.papel === 'operador'
-    ? [{ key: 'meus-chamados', label: 'Meus Chamados', icon: '&#9776;' }]
+  const itens = (state.eu.papel === 'operador'
+    ? [{ key: 'meus-chamados', label: 'Meus Chamados', icon: '&#9776;', modulo: 'chamados' }]
     : [
-        { key: 'chamados', label: 'Chamados', icon: '&#9776;' },
-        { key: 'novo', label: 'Abrir chamado', icon: '&#43;' },
-        { key: 'estoque', label: 'Estoque', icon: '&#128230;' },
-        { key: 'cpd', label: 'Checklist do CPD', icon: '&#9989;' },
-        { key: 'firmware', label: 'Atualizações', icon: '&#128260;' },
-        { key: 'seguranca', label: 'Segurança', icon: '&#128737;' },
-        { key: 'ad', label: 'Colaboradores', icon: '&#128421;' },
+        { key: 'chamados', label: 'Chamados', icon: '&#9776;', modulo: 'chamados' },
+        { key: 'novo', label: 'Abrir chamado', icon: '&#43;', modulo: 'chamados' },
+        { key: 'estoque', label: 'Estoque', icon: '&#128230;', modulo: 'estoque' },
+        { key: 'cpd', label: 'Checklist do CPD', icon: '&#9989;', modulo: 'cpd' },
+        { key: 'firmware', label: 'Atualizações', icon: '&#128260;', modulo: 'atualizacoes' },
+        { key: 'seguranca', label: 'Segurança', icon: '&#128737;', modulo: 'seguranca' },
+        { key: 'ad', label: 'Colaboradores', icon: '&#128421;', modulo: 'colaboradores' },
         ...(state.eu.papel === 'gestor' || state.eu.adminTotal ? [{ key: 'cadastros', label: 'Cadastros', icon: '&#9881;' }] : []),
-      ];
+      ]).filter((i) => !i.modulo || temModulo(i.modulo));
   sidebar.innerHTML = `
-    <div class="brand">
-      <div class="brand-chip">CI</div>
-      <div class="brand-text">Central de Infraestrutura<small>Motor de chamados próprio</small></div>
-    </div>
+    <div class="brand">${marcaHtml()}</div>
     ${itens.map(i => `
       <button class="nav-item ${state.view === i.key ? 'active' : ''}" onclick="goTo('${i.key}')">
         <span class="nav-icon">${i.icon}</span>${esc(i.label)}
@@ -283,11 +304,10 @@ function viewLogin() {
   return `
     <div style="min-height:80vh; display:flex; align-items:center; justify-content:center;">
       <div class="card" style="width:100%; max-width:360px; text-align:center;">
-        <div class="brand" style="padding:0 0 18px 0; justify-content:center;">
-          <div class="brand-chip">CI</div>
-          <div class="brand-text">Central de Infraestrutura<small>Motor de chamados próprio</small></div>
-        </div>
-        <p class="muted" style="margin:0 0 18px 0;">Entre com a sua conta Microsoft da empresa. Primeiro acesso? Sua conta é criada automaticamente pra você abrir e acompanhar os próprios chamados.</p>
+        <div class="brand" style="padding:0 0 18px 0; justify-content:center;">${marcaHtml()}</div>
+        <p class="muted" style="margin:0 0 18px 0;">${temModulo('chamados')
+          ? 'Entre com a sua conta Microsoft da empresa. Primeiro acesso? Sua conta é criada automaticamente pra você abrir e acompanhar os próprios chamados.'
+          : 'Entre com a sua conta Microsoft da empresa. O acesso é liberado por um gestor desta plataforma (Cadastros &gt; Atendentes).'}</p>
         <a href="/api/auth/entra/login" class="btn primary" style="width:100%; display:block; box-sizing:border-box; text-decoration:none;">Entrar com Microsoft</a>
       </div>
     </div>
@@ -852,15 +872,21 @@ async function enviarAvaliacao(event, id) {
 // --- View: cadastros -----------------------------------------------------
 
 async function viewCadastros() {
+  // Instância sem Chamados (ver temModulo): some categorias, subcategorias e
+  // SLA — sobram departamentos, atendentes, feriados e itens de estoque.
+  const chamados = temModulo('chamados');
+  const estoque = temModulo('estoque');
   const [slaPoliticas, itensEstoque, feriados] = await Promise.all([
-    api('/sla-politicas'),
-    api('/estoque/itens'),
+    chamados ? api('/sla-politicas') : [],
+    estoque ? api('/estoque/itens') : [],
     api('/feriados'),
   ]);
 
   return `
     <div class="section-title">Cadastros</div>
-    <p class="section-desc">Departamentos, categorias, atendentes e políticas de prazo de SLA. Nada aqui é usado pra excluir — só criar (evita quebrar chamados antigos que já referenciam esses cadastros).</p>
+    <p class="section-desc">${chamados
+      ? 'Departamentos, categorias, atendentes e políticas de prazo de SLA. Nada aqui é usado pra excluir — só criar (evita quebrar chamados antigos que já referenciam esses cadastros).'
+      : 'Departamentos, atendentes (quem pode entrar na plataforma), feriados e mínimo/status dos itens de estoque.'}</p>
 
     <div class="detalhe-grid">
       <div>
@@ -877,6 +903,7 @@ async function viewCadastros() {
           </form>
         </div>
 
+        ${chamados ? `
         <div class="card" style="margin-top:16px">
           <strong>Categorias</strong>
           <div class="table-wrap" style="margin-top:10px">
@@ -915,10 +942,13 @@ async function viewCadastros() {
             <div class="full"><button class="btn small primary" type="submit">Adicionar</button></div>
           </form>
         </div>
+        ` : ''}
 
         <div class="card" style="margin-top:16px">
           <strong>Atendentes</strong>
-          <p class="section-desc" style="margin-top:6px">Papel é a posição da pessoa (Operador só os próprios chamados; Atendente atende os do departamento dele; Líder supervisiona um ou mais departamentos; Gestor vê tudo) — separado de "Administrador total", que dá acesso a Cadastros/Onboarding de acessos independente do papel. Contas novas entram como Operador sozinhas no primeiro login com Microsoft — aqui é só pra promover alguém.</p>
+          <p class="section-desc" style="margin-top:6px">${chamados
+            ? 'Papel é a posição da pessoa (Operador só os próprios chamados; Atendente atende os do departamento dele; Líder supervisiona um ou mais departamentos; Gestor vê tudo) — separado de "Administrador total", que dá acesso a Cadastros/Onboarding de acessos independente do papel. Contas novas entram como Operador sozinhas no primeiro login com Microsoft — aqui é só pra promover alguém.'
+            : 'Só quem está cadastrado aqui (email igual ao da conta Microsoft) consegue entrar. Atendente usa o estoque no dia a dia; Líder e Gestor também podem corrigir/excluir lançamentos; Gestor ou "Administrador total" acessa Cadastros. Operador não tem acesso a nada nesta instância.'}</p>
           <div class="table-wrap" style="margin-top:10px">
             <table>
               <thead><tr><th>Nome</th><th>Email</th><th>Papel</th><th>Admin total</th><th></th></tr></thead>
@@ -979,7 +1009,9 @@ async function viewCadastros() {
       <div>
         <div class="card">
           <strong>Feriados</strong>
-          <p class="section-desc" style="margin-top:6px">Feriado não conta como dia útil — evita "falta" incorreta no painel do Checklist do CPD e lembrete disparando nesse dia.</p>
+          <p class="section-desc" style="margin-top:6px">${temModulo('cpd')
+            ? 'Feriado não conta como dia útil — evita "falta" incorreta no painel do Checklist do CPD e lembrete disparando nesse dia.'
+            : 'Feriado não conta como dia útil — usado pra decidir o último dia útil do mês no resumo de estoque por email.'}</p>
           <div class="table-wrap" style="margin-top:10px">
             <table><tbody>
               ${feriados.length ? feriados.map(f => `<tr><td>${esc(f.data.split('-').reverse().join('/'))}</td><td>${esc(f.nome)}</td><td><button class="btn small ghost" onclick="apagarFeriado(${f.id})">Remover</button></td></tr>`).join('') : '<tr class="empty-row"><td colspan="3">Nenhum ainda.</td></tr>'}
@@ -992,6 +1024,7 @@ async function viewCadastros() {
           </form>
         </div>
 
+        ${chamados ? `
         <div class="card" style="margin-top:16px">
           <strong>Políticas de SLA</strong>
           <p class="muted" style="margin-top:6px">Resolvida por categoria; se não houver, cai pra política do departamento inteiro (sem categoria).</p>
@@ -1034,7 +1067,9 @@ async function viewCadastros() {
             <div class="full"><button class="btn small primary" type="submit">Adicionar política</button></div>
           </form>
         </div>
+        ` : ''}
 
+        ${estoque ? `
         <div class="card" style="margin-top:16px">
           <strong>Itens de estoque — mínimo e status</strong>
           <p class="muted" style="margin-top:6px">A aba Estoque &gt; Itens é só leitura. Itens aparecem lá automaticamente ao serem usados numa movimentação; aqui você ajusta o mínimo (usado pra calcular "Comprar") e um status manual, se precisar.</p>
@@ -1058,6 +1093,7 @@ async function viewCadastros() {
             </table>
           </div>
         </div>
+        ` : ''}
       </div>
     </div>
   `;
@@ -1186,9 +1222,12 @@ const ESTOQUE_ABAS = [
   { key: 'dashboard', label: 'Dashboard' },
   { key: 'usados', label: 'Descarte' },
   { key: 'movimentacoes', label: 'Atualizar' },
-  { key: 'termos', label: 'Termos' },
-  { key: 'moveis', label: 'Equipamentos móveis' },
+  { key: 'termos', label: 'Termos', modulo: 'estoque-termos' },
+  { key: 'moveis', label: 'Equipamentos móveis', modulo: 'estoque-moveis' },
 ];
+function estoqueAbasVisiveis() {
+  return ESTOQUE_ABAS.filter((a) => !a.modulo || temModulo(a.modulo));
+}
 const ESTOQUE_STATUS_MANUAL_OPCOES = ['', 'Fora de mercado', 'Descontinuado'];
 // Movimentações e Entregas foram fundidas numa aba só (pedido do usuário —
 // as duas eram conceitualmente a mesma coisa, um evento de movimento de
@@ -1269,13 +1308,16 @@ function linhaFiltroColunas(grupo, aba, colunas, temColunaExtra) {
 }
 
 async function viewEstoque() {
+  const abas = estoqueAbasVisiveis();
+  if (!abas.some((a) => a.key === state.estoque.subview)) state.estoque.subview = 'dashboard';
   const aba = state.estoque.subview;
   const conteudo = await viewEstoqueAba(aba);
+  const extras = [temModulo('estoque-termos') && 'termos de colaboradores', temModulo('estoque-moveis') && 'equipamentos móveis'].filter(Boolean);
   return `
     <div class="section-title">Estoque</div>
-    <p class="section-desc">Saldo dos itens (Dashboard), descarte, atualização do estoque (entradas, saídas, entregas e empréstimos), termos de colaboradores e equipamentos móveis.</p>
+    <p class="section-desc">Saldo dos itens (Dashboard), descarte, atualização do estoque (entradas, saídas, entregas e empréstimos)${extras.length ? ', ' + extras.join(' e ') : ''}.</p>
     <div class="toolbar">
-      ${ESTOQUE_ABAS.map(a => `
+      ${abas.map(a => `
         <button class="btn small ${aba === a.key ? 'primary' : ''}" onclick="state.estoque.subview='${a.key}'; render();">${esc(a.label)}</button>
       `).join('')}
     </div>
@@ -1361,11 +1403,11 @@ async function viewEstoqueDashboard() {
     { rotulo: 'Itens no catálogo', valor: r.totalItens },
     { rotulo: 'Precisando comprar', valor: r.itensComprar.length, critico: r.itensComprar.length > 0 },
     { rotulo: 'Atualizações no mês', valor: r.totalMovimentacoesMes, destino: 'movimentacoes' },
-    { rotulo: 'Equipamentos com colaboradores', valor: r.entregasAbertas, destino: 'termos' },
+    { rotulo: 'Equipamentos com colaboradores', valor: r.entregasAbertas, destino: temModulo('estoque-termos') ? 'termos' : 'movimentacoes' },
     { rotulo: 'Descarte', valor: r.totalUsados, destino: 'usados' },
-    { rotulo: 'Equipamentos móveis', valor: r.totalConsultores + r.totalCorporativos, destino: 'moveis' },
-    { rotulo: 'Sem termo assinado', valor: r.colaboradoresSemTermoAssinado.length, critico: r.colaboradoresSemTermoAssinado.length > 0, destino: 'termos' },
-  ];
+    { rotulo: 'Equipamentos móveis', valor: r.totalConsultores + r.totalCorporativos, destino: 'moveis', modulo: 'estoque-moveis' },
+    { rotulo: 'Sem termo assinado', valor: r.colaboradoresSemTermoAssinado.length, critico: r.colaboradoresSemTermoAssinado.length > 0, destino: 'termos', modulo: 'estoque-termos' },
+  ].filter((c) => !c.modulo || temModulo(c.modulo));
 
   const colunas = [
     { key: 'item', label: 'Item' },
@@ -1541,7 +1583,7 @@ async function viewEstoqueMovimentacoes() {
           <div class="field"><input id="novaMovModelo" type="text" placeholder="Modelo (ex: Dell Pro 14)" value="${v('modelo')}" /></div>
           <div class="field"><input id="novaMovSt" type="text" placeholder="Service tag / nº de série" value="${v('st')}" /></div>
         ` : ''}
-        ${tipoAtual === 'ENTREGA' && !editando ? `
+        ${tipoAtual === 'ENTREGA' && !editando && temModulo('estoque-termos') ? `
           <div class="field full"><label class="muted"><input id="novaMovTermoJaAssinado" type="checkbox" style="width:auto" /> Equipamento já está com a pessoa e o termo já foi assinado (enviado por nós) — não gera termo novo e não altera o saldo do estoque</label></div>
         ` : ''}
         <div class="field full"><input id="novaMovDescricao" type="text" placeholder="Descrição (opcional)" value="${v('descricao')}" /></div>
@@ -1551,7 +1593,7 @@ async function viewEstoqueMovimentacoes() {
         </div>
       </form>
     </div>
-    <p class="muted" style="margin:-8px 0 12px 0">Item novo cadastrado automaticamente no catálogo (Dashboard) se ainda não existir. Devolução de colaborador não se cria por aqui — use o botão "Registrar devolução" na própria linha da entrega. Registrar uma entrega já gera o Termo de Responsabilidade sozinho (aba Termos) — o botão "Gerar termo" continua lá pra juntar várias pendências num termo só, se precisar. "Empréstimo (home office)" é pra saída temporária (ex.: notebook que vai pra casa na semana): fica no histórico, mas não altera o saldo do estoque nem pede devolução.</p>
+    <p class="muted" style="margin:-8px 0 12px 0">Item novo cadastrado automaticamente no catálogo (Dashboard) se ainda não existir. Devolução de colaborador não se cria por aqui — use o botão "Registrar devolução" na própria linha da entrega.${temModulo('estoque-termos') ? ' Registrar uma entrega já gera o Termo de Responsabilidade sozinho (aba Termos) — o botão "Gerar termo" continua lá pra juntar várias pendências num termo só, se precisar.' : ''} "Empréstimo (home office)" é pra saída temporária (ex.: notebook que vai pra casa na semana): fica no histórico, mas não altera o saldo do estoque nem pede devolução.</p>
     <div class="actions-row" style="margin-bottom:10px">
       <label class="muted"><input type="checkbox" style="width:auto" ${mostrarDevolvidas ? 'checked' : ''} onchange="state.estoque.mostrarDevolvidas = this.checked; render();" /> Mostrar entregas já devolvidas</label>
     </div>
@@ -4611,6 +4653,10 @@ async function enviarDocumentoOnboarding(tipo, event) {
 (async function start() {
   let resposta;
   try {
+    state.config = await api('/config'); // público — nome e módulos ligados nesta instância
+    document.title = temModulo('chamados') ? `${state.config.nome} — Chamados` : state.config.nome;
+    document.getElementById('mobileTopbarNome').textContent = state.config.nome;
+    document.getElementById('mobileTopbarSigla').textContent = siglaMarca();
     resposta = await api('/auth/eu'); // sempre 200 — { logado: false } ou { logado: true, id, nome, email }
   } catch (e) {
     document.getElementById('main').innerHTML = `<div class="card"><strong>Não consegui conectar na API.</strong> Confirme que o servidor está rodando (${esc(e.message)}).</div>`;
@@ -4629,6 +4675,8 @@ async function enviarDocumentoOnboarding(tipo, event) {
     document.getElementById('main').innerHTML = `<div class="card"><strong>Erro ao carregar dados iniciais:</strong> ${esc(e.message)}</div>`;
     return;
   }
-  state.view = state.eu.papel === 'operador' ? 'meus-chamados' : 'chamados';
+  // Tela inicial: a primeira que existe nesta instância (ver temModulo).
+  if (!temModulo('chamados')) state.view = temModulo('estoque') ? 'estoque' : 'cadastros';
+  else state.view = state.eu.papel === 'operador' ? 'meus-chamados' : 'chamados';
   render();
 })();

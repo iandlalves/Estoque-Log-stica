@@ -20,7 +20,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { enviarEmail } = require('../src/lib/email');
 
-const HEALTH_URL = process.env.MONITOR_HEALTH_URL || 'http://localhost:3000/api/saude';
+// Padrões tirados do .env da própria instância (2026-10-21) — PORT, APP_NOME
+// e MONITOR_SERVICO — pra mesma linha de cron servir a Central e a
+// instância de Estoque, cada uma na sua pasta.
+const HEALTH_URL = process.env.MONITOR_HEALTH_URL || `http://localhost:${process.env.PORT || 3000}/api/saude`;
+const NOME = process.env.APP_NOME || 'Central de Infraestrutura';
+const SERVICO = process.env.MONITOR_SERVICO || 'central-infraestrutura';
 const TIMEOUT_MS = 5000;
 const ESTADO_PATH = path.join(__dirname, '..', 'dados', 'monitor-servico-estado.json');
 // Re-alerta a cada 2h enquanto continuar fora do ar, pra não deixar
@@ -68,9 +73,9 @@ async function checarSaude() {
 
   if (saudavel) {
     if (estadoAnterior.status === 'fora_do_ar') {
-      const html = `<p>A Central de Infraestrutura voltou a responder normalmente (estava fora do ar desde ${estadoAnterior.desdeQuando}).</p>`;
+      const html = `<p>${NOME} voltou a responder normalmente (estava fora do ar desde ${estadoAnterior.desdeQuando}).</p>`;
       try {
-        await enviarEmail({ assunto: 'Central de Infraestrutura: voltou ao ar', texto: html.replace(/<[^>]+>/g, ''), html, destinatarios });
+        await enviarEmail({ assunto: `${NOME}: voltou ao ar`, texto: html.replace(/<[^>]+>/g, ''), html, destinatarios });
         console.log('Serviço voltou ao ar — email de recuperação enviado.');
       } catch (e) {
         console.error('Serviço voltou ao ar, mas falhou ao enviar o email de recuperação:', e.message);
@@ -90,9 +95,9 @@ async function checarSaude() {
     const desdeQuando = jaEstavaFora ? estadoAnterior.desdeQuando : agora.toISOString();
 
     if (devePreAlertar) {
-      const html = `<p>A Central de Infraestrutura não está respondendo em <code>${HEALTH_URL}</code> desde ${desdeQuando}.</p><p>Verifique com: <code>sudo systemctl status central-infraestrutura</code> e <code>sudo journalctl -u central-infraestrutura -n 50</code>.</p>`;
+      const html = `<p>${NOME} não está respondendo em <code>${HEALTH_URL}</code> desde ${desdeQuando}.</p><p>Verifique com: <code>sudo systemctl status ${SERVICO}</code> e <code>sudo journalctl -u ${SERVICO} -n 50</code>.</p>`;
       try {
-        await enviarEmail({ assunto: 'ALERTA: Central de Infraestrutura fora do ar', texto: html.replace(/<[^>]+>/g, ''), html, destinatarios });
+        await enviarEmail({ assunto: `ALERTA: ${NOME} fora do ar`, texto: html.replace(/<[^>]+>/g, ''), html, destinatarios });
         console.log('Serviço fora do ar — email de alerta enviado.');
         salvarEstado({ status: 'fora_do_ar', desdeQuando, ultimoAlertaEm: agora.toISOString() });
       } catch (e) {

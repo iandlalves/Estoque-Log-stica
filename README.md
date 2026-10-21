@@ -18,6 +18,14 @@ integração com a API do TomTicket foi removida de propósito, ver decisão
 abaixo). Dá pra considerar este site como o sucessor da ferramenta antiga
 pra fase "só Infra".
 
+**Instância só Estoque (2026-10-21).** Este repositório (Estoque-Log-stica)
+é a cópia usada pela instância "Estoque Logística", de outro departamento:
+mesmo código, com `APP_MODULOS=estoque` no `.env` — o menu e a API mostram
+só Estoque (Dashboard, Descarte, Atualizar) e Cadastros. Roda no mesmo
+servidor da Central em `https://dsp-lif.local:8443`, com banco, `.env`,
+porta e serviço próprios. Instalação e deploy: `DEPLOY-LINUX.md`, seção 9.
+Sem `APP_MODULOS`, o comportamento é o da Central completa.
+
 ## Requisitos
 
 - **Node.js 22.5 ou mais recente.** O banco de dados usa o módulo

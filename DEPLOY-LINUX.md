@@ -250,3 +250,136 @@ envio só mostra "Leitura automática indisponível" e tudo fica à mão. Os
 arquivos temporários da leitura ficam em `dados/ocr-tmp/` (apagados na hora).
 Variáveis opcionais no `.env`: `OCR_TESSERACT_BIN`, `OCR_PDFTOPPM_BIN`,
 `OCR_IDIOMA` (padrão `por`), `OCR_DPI` (padrão `300`).
+
+## 9. Segunda instância: Estoque Logística (só Estoque, outro departamento)
+
+Mesmo código da Central, com um interruptor de módulos no `.env`
+(`APP_MODULOS=estoque`, ver `src/lib/modulos.js`): o menu e a API mostram
+só **Estoque** (Dashboard, Descarte, Atualizar) e **Cadastros** (atendentes,
+departamentos, feriados, mínimo dos itens). Chamados, CPD, Atualizações,
+Segurança, Colaboradores, Termos e Equipamentos móveis não aparecem e as
+rotas deles respondem 404. Entrega a colaborador continua existindo em
+Atualizar, mas não gera termo.
+
+Roda no **mesmo servidor** da Central, com tudo próprio — nada é
+compartilhado:
+
+| | Central | Estoque Logística |
+|---|---|---|
+| Endereço | `https://dsp-lif.local` | `https://dsp-lif.local:8443` |
+| Pasta | `/opt/central-infraestrutura` | `/opt/estoque-logistica` |
+| Usuário do sistema | `central-infra` | `estoque-log` |
+| Porta interna | 3000 | 3001 |
+| Serviço systemd | `central-infraestrutura` | `estoque-logistica` |
+| Banco / `dados/` / `.env` | os dela | os dela |
+| Backups do código (deploy) | `/opt/central-infraestrutura-backups` | `/opt/estoque-logistica-backups` |
+| Repositório | Central-de-Infraestrutura | Estoque-Log-stica (este) |
+
+**Cada repositório atualiza só a sua instância.** `bash scripts/deploy.sh`
+daqui vai pra `/opt/estoque-logistica` (padrões já apontam pra lá) e se
+recusa a mandar este código pra pasta da Central.
+
+### 9.1. Usuário, pasta e código
+
+```bash
+sudo useradd --system --create-home --home-dir /opt/estoque-logistica --shell /usr/sbin/nologin estoque-log
+sudo -u estoque-log git clone https://github.com/iandlalves/Estoque-Log-stica.git /opt/estoque-logistica
+cd /opt/estoque-logistica
+sudo -u estoque-log npm install --omit=dev
+sudo -u estoque-log mkdir -p dados logs
+```
+
+(Ou, sem acesso ao GitHub no servidor: crie a pasta vazia com o dono certo e
+rode `bash scripts/deploy.sh` do Windows — ele manda o código e roda o
+`npm install`. Vai falhar no health check até o serviço existir, e tudo bem.)
+
+### 9.2. `.env`
+
+```bash
+sudo -u estoque-log cp deploy/estoque-logistica.env.example .env
+sudo -u estoque-log nano .env
+```
+
+Preencha `GRAPH_*` (os mesmos da Central — mesmo App Registration),
+`MAIL_FROM`, `MAIL_TO` e, se quiser destinatários diferentes pro resumo
+semanal, `RESUMO_ESTOQUE_TO`/`RESUMO_ESTOQUE_CC`/`LEMBRETE_ESTOQUE_TO`.
+Numa instância com `APP_MODULOS` os scripts **não** usam os destinatários
+padrão da Central — sem essas variáveis, vai tudo pro `MAIL_TO` daqui.
+
+**Login com Microsoft:** no App Registration (Azure Portal → Entra ID → App
+registrations → o mesmo app da Central → Authentication → Web), adicione um
+segundo Redirect URI: `https://dsp-lif.local:8443/api/auth/entra/callback`.
+O da Central continua lá.
+
+### 9.3. Primeiro gestor
+
+Sem o módulo Chamados, o login com Microsoft **não cria conta sozinho** —
+só entra quem estiver em Cadastros → Atendentes. Cadastre o primeiro
+gestor direto no banco desta instância:
+
+```bash
+sudo -u estoque-log bash -c 'cd /opt/estoque-logistica && node scripts/criar-gestor.js "email@telehelp.com.br" "Nome da Pessoa"'
+```
+
+Depois, essa pessoa cadastra o resto da equipe pela tela (Cadastros →
+Atendentes): **Atendente** usa o estoque; **Líder/Gestor** também corrigem
+e excluem lançamentos; **Gestor** ou **Administrador total** acessa
+Cadastros.
+
+### 9.4. Serviço
+
+```bash
+sudo cp deploy/estoque-logistica.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now estoque-logistica
+curl -s http://localhost:3001/api/saude
+curl -s http://localhost:3001/api/config    # deve listar só "estoque"
+```
+
+### 9.5. Caddy (porta 8443)
+
+Não sobrescreva o `/etc/caddy/Caddyfile` (é o da Central). O site novo
+fica num arquivo à parte, incluído por uma linha `import`:
+
+```bash
+sudo cp deploy/Caddyfile.estoque-logistica /etc/caddy/estoque-logistica.caddy
+echo 'import /etc/caddy/estoque-logistica.caddy' | sudo tee -a /etc/caddy/Caddyfile
+sudo caddy validate --config /etc/caddy/Caddyfile
+sudo systemctl reload caddy
+```
+
+Se o servidor tiver firewall ligado (`sudo ufw status`), libere a porta:
+`sudo ufw allow 8443/tcp`.
+
+**Atenção:** se alguém reinstalar o Caddyfile da Central com o
+`cp deploy/Caddyfile.linux /etc/caddy/Caddyfile` da seção 6, a linha
+`import` some e a instância de Estoque fica fora do ar — rode o `echo ...
+| sudo tee -a` acima de novo.
+
+O certificado é da mesma CA interna do Caddy: quem já confia na Central
+não vê aviso novo.
+
+### 9.6. Envios agendados, backup e monitor
+
+```bash
+sudo -u estoque-log crontab deploy/crontab-estoque-logistica
+sudo -u estoque-log crontab -l
+```
+
+O backup sai em `/opt/estoque-logistica/dados/backups/estoque-logistica-*.db`
+(prefixo `BACKUP_PREFIXO`); o monitor confere a porta do `PORT` do `.env`.
+Backup manual: `sudo -u estoque-log bash -c 'cd /opt/estoque-logistica && node scripts/backup.js'`.
+
+### 9.7. Atualizando depois
+
+Do Windows, na raiz deste repositório: `bash scripts/deploy.sh`. A Central
+continua sendo atualizada pelo repositório dela, do jeito de sempre.
+
+### 9.8. Checklist
+
+- [ ] `systemctl status estoque-logistica` → `active (running)`
+- [ ] `curl -s http://localhost:3001/api/config` → `"modulos":["estoque"]`
+- [ ] `https://dsp-lif.local:8443` abre com cadeado; `https://dsp-lif.local` (Central) continua igual
+- [ ] Login com Microsoft funciona com o gestor criado em 9.3, e uma conta não cadastrada é recusada
+- [ ] Menu mostra só Estoque e Cadastros
+- [ ] `sudo -u estoque-log crontab -l` mostra as 4 linhas

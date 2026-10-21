@@ -95,7 +95,10 @@ const uploadTermo = multer({
   },
 });
 
-function estoqueRouter(db) {
+// opcoes.termos (2026-10-21): false numa instância sem a aba Termos
+// (APP_MODULOS sem "estoque-termos", ver src/lib/modulos.js) — aí a entrega
+// a colaborador não gera termo nem cadastra colaborador sozinha.
+function estoqueRouter(db, { termos: termosAtivos = true } = {}) {
   const router = express.Router();
 
   // --- Itens (catálogo principal, com saldo/status calculados) -----------
@@ -290,11 +293,13 @@ function estoqueRouter(db) {
     let avisoTermo;
     let termoGerado = null;
     let colaboradorDoTermo = null;
-    if (tipo === 'ENTREGA' && !entregaHistorica && !(usuario && usuario.trim())) {
+    if (termosAtivos && tipo === 'ENTREGA' && !entregaHistorica && !(usuario && usuario.trim())) {
       // Antes isso passava em silêncio: sem Usuário não há de quem gerar o termo.
       avisoTermo = 'Entrega registrada, mas o campo Usuário estava vazio — por isso o termo NÃO foi gerado. Preencha o usuário (ex.: aline.amorim) e gere o termo na aba Termos, na ficha do colaborador.';
     }
-    if (entregaHistorica && usuario && usuario.trim()) {
+    if (!termosAtivos) {
+      // Instância sem a aba Termos: a entrega fica só no histórico/saldo.
+    } else if (entregaHistorica && usuario && usuario.trim()) {
       // Garante que a pessoa existe em Colaboradores (aba Termos) — sem gerar termo.
       resolverOuCriarColaboradorPorUsuario(usuario.trim(), departamento);
     } else if (tipo === 'ENTREGA' && usuario && usuario.trim()) {
