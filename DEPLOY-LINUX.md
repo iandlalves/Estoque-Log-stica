@@ -266,7 +266,7 @@ compartilhado:
 
 | | Central | Estoque Logística |
 |---|---|---|
-| Endereço | `https://dsp-lif.local` | `https://dsp-lif.local:8443` |
+| Endereço | `https://192.168.62.194` | `https://192.168.62.194:8443` |
 | Pasta | `/opt/central-infraestrutura` | `/opt/estoque-logistica` |
 | Usuário do sistema | `central-infra` | `estoque-log` |
 | Porta interna | 3000 | 3001 |
@@ -308,7 +308,7 @@ padrão da Central — sem essas variáveis, vai tudo pro `MAIL_TO` daqui.
 
 **Login com Microsoft:** no App Registration (Azure Portal → Entra ID → App
 registrations → o mesmo app da Central → Authentication → Web), adicione um
-segundo Redirect URI: `https://dsp-lif.local:8443/api/auth/entra/callback`.
+segundo Redirect URI: `https://192.168.62.194:8443/api/auth/entra/callback`.
 O da Central continua lá.
 
 ### 9.3. Primeiro gestor
@@ -379,7 +379,7 @@ continua sendo atualizada pelo repositório dela, do jeito de sempre.
 
 - [ ] `systemctl status estoque-logistica` → `active (running)`
 - [ ] `curl -s http://localhost:3001/api/config` → `"modulos":["estoque"]`
-- [ ] `https://dsp-lif.local:8443` abre com cadeado; `https://dsp-lif.local` (Central) continua igual
+- [ ] `https://192.168.62.194:8443` abre com cadeado; `https://192.168.62.194` (Central) continua igual
 - [ ] Login com Microsoft funciona com o gestor criado em 9.3, e uma conta não cadastrada é recusada
 - [ ] Menu mostra só Estoque e Cadastros
 - [ ] `sudo -u estoque-log crontab -l` mostra as 4 linhas

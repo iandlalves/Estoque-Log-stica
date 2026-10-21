@@ -22,7 +22,7 @@ pra fase "só Infra".
 é a cópia usada pela instância "Estoque Logística", de outro departamento:
 mesmo código, com `APP_MODULOS=estoque` no `.env` — o menu e a API mostram
 só Estoque (Dashboard, Descarte, Atualizar) e Cadastros. Roda no mesmo
-servidor da Central em `https://dsp-lif.local:8443`, com banco, `.env`,
+servidor da Central em `https://192.168.62.194:8443`, com banco, `.env`,
 porta e serviço próprios. Instalação e deploy: `DEPLOY-LINUX.md`, seção 9.
 Sem `APP_MODULOS`, o comportamento é o da Central completa.
 
